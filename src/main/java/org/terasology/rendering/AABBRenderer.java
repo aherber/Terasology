@@ -33,13 +33,20 @@ import static org.lwjgl.opengl.GL11.glScalef;
 import static org.lwjgl.opengl.GL11.glTranslated;
 import static org.lwjgl.opengl.GL11.glVertex3f;
 
+import java.nio.FloatBuffer;
+
+import javax.vecmath.Quat4f;
 import javax.vecmath.Vector3f;
 
+import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 import org.terasology.game.CoreRegistry;
 import org.terasology.logic.manager.ShaderManager;
 import org.terasology.math.AABB;
+import org.terasology.math.QuatUtil;
 import org.terasology.rendering.world.WorldRenderer;
+
+import com.bulletphysics.linearmath.QuaternionUtil;
 
 /**
  * Renderer for an AABB.
@@ -82,13 +89,19 @@ public class AABBRenderer
      */
     public void render(float lineThickness) {
         ShaderManager.getInstance().enableDefault();
-
         glPushMatrix();
         Vector3f cameraPosition = CoreRegistry.get(WorldRenderer.class).getActiveCamera().getPosition();
         glTranslated(aabb.getCenter().x - cameraPosition.x, -cameraPosition.y, aabb.getCenter().z - cameraPosition.z);
-
         renderLocally(lineThickness);
-
+        glPopMatrix();
+    }
+    
+    public void render(float lineThickness, Quat4f rotation) {
+        ShaderManager.getInstance().enableDefault();
+        glPushMatrix();
+        Vector3f cameraPosition = CoreRegistry.get(WorldRenderer.class).getActiveCamera().getPosition();
+        glTranslated(aabb.getCenter().x - cameraPosition.x, -cameraPosition.y, aabb.getCenter().z - cameraPosition.z);
+        renderLocally(lineThickness, rotation);
         glPopMatrix();
     }
 
@@ -101,10 +114,23 @@ public class AABBRenderer
 
         glPushMatrix();
         glTranslated(0f, aabb.getCenter().y, 0f);
-
         glLineWidth(lineThickness);
         glCallList(displayListWire);
-
+        glPopMatrix();
+    }
+    
+    
+    public void renderLocally(float lineThickness, Quat4f rotation) {
+        ShaderManager.getInstance().enableDefault();
+        if (displayListWire == -1) {
+            generateDisplayListWire();
+        }
+        glPushMatrix();
+        glTranslated(0f, aabb.getCenter().y, 0f);
+        float angle = QuaternionUtil.getAngle(rotation);
+        GL11.glRotated(Math.toDegrees(angle), rotation.x, rotation.y, rotation.z);
+        glLineWidth(lineThickness);
+        glCallList(displayListWire);
         glPopMatrix();
     }
 
@@ -167,6 +193,19 @@ public class AABBRenderer
         glEndList();
 
     }
+    
+//    private void generateDisplayListWireShape(Vector3f[] vertices) {
+//        float offset = 0.001f;
+//        displayListWire = glGenLists(1);
+//        glNewList(displayListWire, GL11.GL_COMPILE);
+//        glColor4f(0.0f, 0.0f, 0.0f, 1.0f);
+//   	 	glBegin(GL11.GL_LINES);
+//        for(Vector3f curVertex : vertices){
+//             glVertex3f(curVertex.x - offset, curVertex.y - offset, curVertex.z - offset);
+//        }
+//        glEnd();
+//        glEndList();
+//    }
 
     private void generateDisplayListWire() {
         float offset = 0.001f;

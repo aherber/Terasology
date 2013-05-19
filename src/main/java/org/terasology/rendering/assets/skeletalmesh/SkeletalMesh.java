@@ -184,6 +184,14 @@ public class SkeletalMesh implements Asset {
         }
         return getVertexPositions(positions, rotations);
     }
+    
+    public List<Vector3f> getBindPoseVertexPositionsForBone(Bone bone) {
+        List<Vector3f> positions = Lists.newArrayListWithCapacity(1);
+        List<Quat4f> rotations = Lists.newArrayListWithCapacity(1);
+        positions.add(bone.getObjectPosition());
+        rotations.add(bone.getObjectRotation());
+        return getVertexPositions(positions, rotations);
+    }
 
     public List<Vector3f> getBindPoseVertexNormals() {
         List<Vector3f> positions = Lists.newArrayListWithCapacity(bones.size());
@@ -193,6 +201,26 @@ public class SkeletalMesh implements Asset {
             rotations.add(bone.getObjectRotation());
         }
         return getVertexNormals(positions, rotations);
+    }
+    
+    public List<Vector3f> getVertexPositionsBone(Bone bone) {
+        List<Vector3f> results = Lists.newArrayListWithCapacity(getVertexCount());
+        for (int i = 0; i < vertexStartWeights.size(); ++i) {
+            Vector3f vertexPos = new Vector3f();
+            for (int weightIndexOffset = 0; weightIndexOffset < vertexWeightCounts.get(i); ++weightIndexOffset) {
+                int weightIndex = vertexStartWeights.get(i) + weightIndexOffset;
+                BoneWeight weight = weights.get(weightIndex);
+                
+                if(bone.getIndex() == weight.getBoneIndex()){
+                	Vector3f current = QuaternionUtil.quatRotate(bone.getObjectRotation(), weight.getPosition(), new Vector3f());
+                	current.add(bone.getObjectPosition());
+                	current.scale(weight.getBias());
+                	vertexPos.add(current);
+                    results.add(vertexPos);
+                }
+            }
+        }
+        return results;
     }
 
     public List<Vector3f> getVertexPositions(List<Vector3f> bonePositions, List<Quat4f> boneRotations) {
