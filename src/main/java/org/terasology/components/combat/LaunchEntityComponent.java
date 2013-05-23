@@ -1,5 +1,5 @@
 /*
- * Copyright 2012
+ * Copyright 2012 Benjamin Glatzel <benjamin.glatzel@me.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,19 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package org.terasology.physics;
-
-import java.util.List;
+package org.terasology.components.combat;
 
 import org.terasology.entitySystem.Component;
 
-import com.google.common.collect.Lists;
-
-/**
- * @author Immortius
- */
-public class TriggerComponent implements Component {
-    public List<CollisionGroup> detectGroups = Lists.<CollisionGroup>newArrayList(StandardCollisionGroup.DEFAULT);
-    public boolean enabled = true;
+public final class LaunchEntityComponent implements Component {
+    public String entity;
+    public float spawnDistance = 2.0f;
+    public boolean useMouseLookForRotation = true;
+    public boolean useAmmunition = false;
+    public float distancePerSecond = 0;
 }

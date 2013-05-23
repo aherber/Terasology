@@ -217,6 +217,23 @@ public class BulletPhysics implements EventReceiver<BlockChangedEvent> {
         }
         return new HitResult();
     }
+    
+    
+    public HitResult rayTrace(Vector3f from, Vector3f direction, float distance, short collisionFilter) {
+        Vector3f to = new Vector3f(direction);
+        to.normalize();
+        to.scale(distance);
+        to.add(from);
+        CollisionWorld.ClosestRayResultWithUserDataCallback closest = new CollisionWorld.ClosestRayResultWithUserDataCallback(from, to);
+        closest.collisionFilterGroup = collisionFilter;
+        _discreteDynamicsWorld.rayTest(from, to, closest);
+        if (closest.userData instanceof Vector3i) {
+            return new HitResult(blockEntityRegistry.getOrCreateEntityAt((Vector3i)closest.userData), closest.hitPointWorld, closest.hitNormalWorld);
+        } else if (closest.userData instanceof EntityRef) {
+            return new HitResult((EntityRef) closest.userData, closest.hitPointWorld, closest.hitNormalWorld);
+        }
+        return new HitResult();
+    }
 
     @Override
     public void onEvent(BlockChangedEvent event, EntityRef entity) {

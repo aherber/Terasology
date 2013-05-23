@@ -1,5 +1,5 @@
 /*
- * Copyright 2012
+ * Copyright 2012 Benjamin Glatzel <benjamin.glatzel@me.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,19 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.terasology.components.combat;
 
-package org.terasology.physics;
-
-import java.util.List;
+import javax.vecmath.Vector3f;
 
 import org.terasology.entitySystem.Component;
+import org.terasology.entitySystem.EntityRef;
 
-import com.google.common.collect.Lists;
-
-/**
- * @author Immortius
- */
-public class TriggerComponent implements Component {
-    public List<CollisionGroup> detectGroups = Lists.<CollisionGroup>newArrayList(StandardCollisionGroup.DEFAULT);
-    public boolean enabled = true;
+public final class RayTraceActionComponent implements Component {
 }

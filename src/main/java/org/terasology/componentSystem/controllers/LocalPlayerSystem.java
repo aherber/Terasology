@@ -533,27 +533,24 @@ public class LocalPlayerSystem implements UpdateSubscriberSystem, RenderSystem, 
         localPlayer.getEntity().saveComponent(localPlayerComp);
     }
 
-    @ReceiveEvent(components = {LocalPlayerComponent.class, InventoryComponent.class}, priority = EventPriority.PRIORITY_NORMAL)
+    @ReceiveEvent(components = {LocalPlayerComponent.class, InventoryComponent.class})
     public void onUseItemRequest(UseItemButton event, EntityRef entity) {
-        if (!event.isDown() || timer.getTimeInMs() - lastInteraction < 200) {
-            return;
-        }
-
+    	InventoryComponent inventory = entity.getComponent(InventoryComponent.class);
         LocalPlayerComponent localPlayerComp = entity.getComponent(LocalPlayerComponent.class);
-        InventoryComponent inventory = entity.getComponent(InventoryComponent.class);
-        if (localPlayerComp.isDead) return;
-
         EntityRef selectedItemEntity = inventory.itemSlots.get(localPlayerComp.selectedTool);
-
         ItemComponent item = selectedItemEntity.getComponent(ItemComponent.class);
-        if (item != null && item.usage != ItemComponent.UsageType.NONE) {
-            useItem(event.getTarget(), entity, selectedItemEntity, event.getHitPosition(), event.getHitNormal());
+        if (localPlayerComp.isDead) return;
+        if (timer.getTimeInMs() - lastInteraction < 200) return;
+        if (item == null || (item.chargeable && event.isDown()) ) return;
+        
+        if (item != null && item.usage != ItemComponent.UsageType.NONE ) {
+        	 if (item.chargeable && item.minChargeTime > item.chargeTime){ return;}
+        	 useItem(event.getTarget(), entity, selectedItemEntity, event.getHitPosition(), event.getHitNormal());
+     		 item.chargeTime = 0;
         }
-
         lastInteraction = timer.getTimeInMs();
         localPlayerComp.handAnimation = 0.5f;
         entity.saveComponent(localPlayerComp);
-        event.consume();
     }
 
     private void useItem(EntityRef target, EntityRef player, EntityRef item, Vector3f hitPosition, Vector3f hitNormal) {

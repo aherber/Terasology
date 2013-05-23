@@ -1,5 +1,5 @@
 /*
- * Copyright 2012
+ * Copyright 2012 Benjamin Glatzel <benjamin.glatzel@me.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,19 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package org.terasology.physics;
-
-import java.util.List;
+package org.terasology.components.combat;
 
 import org.terasology.entitySystem.Component;
+import org.terasology.entitySystem.EntityRef;
+import org.terasology.game.Timer;
 
-import com.google.common.collect.Lists;
-
-/**
- * @author Immortius
- */
-public class TriggerComponent implements Component {
-    public List<CollisionGroup> detectGroups = Lists.<CollisionGroup>newArrayList(StandardCollisionGroup.DEFAULT);
-    public boolean enabled = true;
+public final class HitDetectionComponent implements Component {
+    public org.terasology.componentSystem.combat.HitDetection trigger = org.terasology.componentSystem.combat.HitDetection.ONCE;
+    public boolean hitBlocks = false;
+//    public float detectionPeriod = 0.0f;
+//    public float timeSinceLastHit = 0;
+//    public float timeBetweenHits = 0;
 }

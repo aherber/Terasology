@@ -94,5 +94,10 @@ public final class ItemComponent implements Component {
 
         return perBlockDamageBonus;
     }
+    
+    public boolean chargeable = false;
+    public float chargeTime = 0.0f; 
+    public float maxChargeTime = 0.0f;
+    public float minChargeTime = 0.0f; 
 
 }

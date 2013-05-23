@@ -1,5 +1,5 @@
 /*
- * Copyright 2012  Benjamin Glatzel <benjamin.glatzel@me.com>
+ * Copyright 2012 Benjamin Glatzel <benjamin.glatzel@me.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,38 +13,44 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package org.terasology.physics;
+package org.terasology.events;
 
 import javax.vecmath.Vector3f;
 
 import org.terasology.entitySystem.AbstractEvent;
 import org.terasology.entitySystem.EntityRef;
-
+import org.terasology.physics.HitResult;
+ 
 /**
- * @author Immortius
+ * @author aherber 
  */
-public class CollideEvent extends AbstractEvent {
-    private EntityRef otherEntity;
-    private Vector3f hitPoint;
+public class HitEvent extends AbstractEvent {
+    private EntityRef instigator;
+    private EntityRef other;
+    private Vector3f hitPosition;
     private Vector3f hitNormal;
     
-    public CollideEvent(EntityRef other, Vector3f point, Vector3f normal) {
-        otherEntity = other;
-        hitPoint = point;
-        hitNormal = normal;
+    public HitEvent(EntityRef instigator, EntityRef other, Vector3f drive , Vector3f hitNormal) {
+        this.instigator = instigator;
+        this.other = other;
+        this.hitPosition = drive;
+        this.hitNormal = hitNormal;
     }
 
-    public EntityRef getOtherEntity() {
-        return otherEntity;
+    public EntityRef getInstigator() {
+        return instigator;
     }
 
-	public Vector3f getHitPoint() {
-		return hitPoint;
+	public Vector3f getHitPosition() {
+		return hitPosition;
 	}
 
 	public Vector3f getHitNormal() {
 		return hitNormal;
 	}
-    
+
+	public EntityRef getOther() {
+		return other;
+	}
+
 }

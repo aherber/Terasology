@@ -31,20 +31,24 @@ import org.terasology.components.world.LocationComponent;
 import org.terasology.entitySystem.EntityRef;
 import org.terasology.entitySystem.EventHandlerSystem;
 import org.terasology.entitySystem.EventPriority;
+import org.terasology.entitySystem.In;
 import org.terasology.entitySystem.ReceiveEvent;
 import org.terasology.entitySystem.RegisterComponentSystem;
 import org.terasology.entitySystem.event.AddComponentEvent;
 import org.terasology.entitySystem.event.ChangedComponentEvent;
 import org.terasology.entitySystem.event.RemovedComponentEvent;
 import org.terasology.game.CoreRegistry;
+import org.terasology.math.Vector3i;
 import org.terasology.physics.character.CharacterMovementComponent;
 import org.terasology.physics.shapes.BoxShapeComponent;
 import org.terasology.physics.shapes.CapsuleShapeComponent;
 import org.terasology.physics.shapes.CylinderShapeComponent;
 import org.terasology.physics.shapes.HullShapeComponent;
 import org.terasology.physics.shapes.SphereShapeComponent;
+import org.terasology.world.BlockEntityRegistry;
 
 import com.bulletphysics.collision.broadphase.BroadphasePair;
+import com.bulletphysics.collision.broadphase.BroadphaseProxy;
 import com.bulletphysics.collision.dispatch.CollisionFlags;
 import com.bulletphysics.collision.dispatch.CollisionObject;
 import com.bulletphysics.collision.dispatch.GhostObject;
@@ -72,18 +76,30 @@ import com.google.common.collect.Maps;
 @RegisterComponentSystem
 public class PhysicsSystem implements EventHandlerSystem, UpdateSubscriberSystem {
 
+	@In
     private BulletPhysics physics;
-    private Map<EntityRef, RigidBody> entityRigidBodies = Maps.newHashMap();
+	@In
+    private BlockEntityRegistry blockEntityRegistry;
+    
+	private Map<EntityRef, RigidBody> entityRigidBodies = Maps.newHashMap();
     private Map<EntityRef, PairCachingGhostObject> entityTriggers = Maps.newHashMap();
     private int skipProcessingFrames = 4;
 
     @Override
-    public void initialise() {
-        physics = CoreRegistry.get(BulletPhysics.class);
+    public void initialise() {        
         skipProcessingFrames = 4;
+        CoreRegistry.put(PhysicsSystem.class, this);
     }
+    
+    public BulletPhysics getPhysics() {
+		return physics;
+	}
 
-    @Override
+	public void setPhysics(BulletPhysics physics) {
+		this.physics = physics;
+	}
+
+	@Override
     public void shutdown() {
     }
 
@@ -99,13 +115,21 @@ public class PhysicsSystem implements EventHandlerSystem, UpdateSubscriberSystem
         if (shape != null) {
             float scale = location.getWorldScale();
             shape.setLocalScaling(new Vector3f(scale, scale, scale));
-
             Vector3f fallInertia = new Vector3f();
             shape.calculateLocalInertia(rigidBody.mass, fallInertia);
             RigidBodyConstructionInfo info = new RigidBodyConstructionInfo(rigidBody.mass, new EntityMotionState(entity), shape, fallInertia);
-            RigidBody collider = new RigidBody(info);
-            collider.setUserPointer(entity);
-            updateKinematicSettings(rigidBody, collider);
+            RigidBody collider = new RigidBody(info);  
+//            collider.setFriction(rigidBody.friction);
+//            collider.setRestitution(rigidBody.restitution);
+//            collider.setAngularVelocity(new Vector3f(rigidBody.angularVelocity,rigidBody.angularVelocity,rigidBody.angularVelocity));
+//            collider.setAngularFactor(rigidBody.angularFactor);
+//            collider.setLinearVelocity(new Vector3f(rigidBody.velocity, rigidBody.velocity, rigidBody.velocity));
+//            collider.setGravity(new Vector3f(rigidBody.gravity, rigidBody.gravity, rigidBody.gravity));
+//            collider.setDamping(rigidBody.damping, rigidBody.damping);
+//            collider.setCcdMotionThreshold(rigidBody.ccdMotionThreshold);
+//            collider.setCcdSweptSphereRadius(rigidBody.ccdSweptSphereRadius);
+            collider.setUserPointer(entity);    
+            collider.setDeactivationTime(0.1f);
             RigidBody oldBody = entityRigidBodies.put(entity, collider);
             physics.addRigidBody(collider, Lists.<CollisionGroup>newArrayList(rigidBody.collisionGroup), rigidBody.collidesWith);
             if (oldBody != null) {
@@ -113,7 +137,11 @@ public class PhysicsSystem implements EventHandlerSystem, UpdateSubscriberSystem
             }
         }
     }
-
+    
+    public void recreate(EntityRef entity){
+    	createRigidBody(entity);
+    }
+    
     private void updateKinematicSettings(RigidBodyComponent rigidBody, RigidBody collider) {
         if (rigidBody.kinematic) {
             collider.setCollisionFlags(collider.getCollisionFlags() | CollisionFlags.KINEMATIC_OBJECT);
@@ -170,37 +198,52 @@ public class PhysicsSystem implements EventHandlerSystem, UpdateSubscriberSystem
     @ReceiveEvent(components = {TriggerComponent.class, LocationComponent.class})
     public void updateTrigger(ChangedComponentEvent event, EntityRef entity) {
         LocationComponent location = entity.getComponent(LocationComponent.class);
+        TriggerComponent trigger = entity.getComponent(TriggerComponent.class);
         PairCachingGhostObject triggerObj = entityTriggers.get(entity);
-
         if (triggerObj != null) {
             float scale = location.getWorldScale();
-            if (Math.abs(triggerObj.getCollisionShape().getLocalScaling(new Vector3f()).x - scale) > BulletGlobals.SIMD_EPSILON) {
-                physics.removeCollider(triggerObj);
+            if ( (Math.abs(triggerObj.getCollisionShape().getLocalScaling(new Vector3f()).x - scale) > BulletGlobals.SIMD_EPSILON) 
+            	|| BulletPhysics.combineGroups(trigger.detectGroups) != triggerObj.getBroadphaseHandle().collisionFilterMask){
+            	physics.removeCollider(triggerObj);
                 createTrigger(entity);
             } else {
                 triggerObj.setWorldTransform(new Transform(new Matrix4f(location.getWorldRotation(), location.getWorldPosition(), 1.0f)));
-            }
+            }      
+        	if(triggerObj.isActive() && !trigger.enabled){
+        		triggerObj.setActivationState(triggerObj.DISABLE_SIMULATION);
+        	}else if(!triggerObj.isActive() && trigger.enabled){
+        		triggerObj.activate(true);
+        	}
         }
-
         // TODO: update if detectGroups changed
     }
-
+    
+  
+      
     @ReceiveEvent(components = {RigidBodyComponent.class, LocationComponent.class})
     public void updateRigidBody(ChangedComponentEvent event, EntityRef entity) {
         LocationComponent location = entity.getComponent(LocationComponent.class);
+        RigidBodyComponent rigid = entity.getComponent(RigidBodyComponent.class);
         RigidBody rigidBody = entityRigidBodies.get(entity);
-
+        Transform transform = new Transform();
+        rigidBody.getWorldTransform(transform);
+        Quat4f rotation = new Quat4f();
+        transform.getRotation(rotation);
         if (rigidBody != null) {
             float scale = location.getWorldScale();
-            if (Math.abs(rigidBody.getCollisionShape().getLocalScaling(new Vector3f()).x - scale) > BulletGlobals.SIMD_EPSILON) {
+            float mass = 1/rigidBody.getInvMass();          
+            BroadphaseProxy broadphaseProxy = rigidBody.getBroadphaseProxy();
+            short rigidFlag = rigid.collisionGroup.getFlag();
+            if (Math.abs(rigidBody.getCollisionShape().getLocalScaling(new Vector3f()).x - scale) > BulletGlobals.SIMD_EPSILON
+                || mass != rigid.mass 
+                || (broadphaseProxy != null && broadphaseProxy.collisionFilterGroup != rigidFlag)
+                ) {
                 physics.removeRigidBody(rigidBody);
                 createRigidBody(entity);
             }
-
             updateKinematicSettings(entity.getComponent(RigidBodyComponent.class), rigidBody);
         }
-
-        // TODO: update if mass or collision groups change
+        // TODO: update if mass or collision groups change // aherber: should work now :)
     }
 
     // TODO: Flyweight this (take scale as parameter)
@@ -242,6 +285,21 @@ public class PhysicsSystem implements EventHandlerSystem, UpdateSubscriberSystem
         }
         return null;
     }
+    
+    public RigidBody getRigidBodyForEntity(EntityRef entity) {
+		return entityRigidBodies.get(entity);
+    }
+    
+    public PairCachingGhostObject getTrigggerForEntity(EntityRef entity) {
+		return entityTriggers.get(entity);
+    }
+     
+    public void translate(Vector3f target, CollisionObject colObj){
+		Transform transform = new Transform();
+		colObj.getInterpolationWorldTransform(transform);
+		transform.origin.set(target.x,target.y, target.z);
+		colObj.setWorldTransform(transform);
+    }
 
     @Override
     public void update(float delta) {
@@ -250,7 +308,6 @@ public class PhysicsSystem implements EventHandlerSystem, UpdateSubscriberSystem
             skipProcessingFrames--;
             return;
         }
-
         List<CollisionPair> collisionPairs = Lists.newArrayList();
 
         DynamicsWorld world = physics.getWorld();
@@ -259,14 +316,20 @@ public class PhysicsSystem implements EventHandlerSystem, UpdateSubscriberSystem
             EntityRef entity = (EntityRef) trigger.getUserPointer();
             for (BroadphasePair initialPair : trigger.getOverlappingPairCache().getOverlappingPairArray()) {
                 EntityRef otherEntity = null;
-                if (initialPair.pProxy0.clientObject == trigger) {
-                    if (((CollisionObject) initialPair.pProxy1.clientObject).getUserPointer() instanceof EntityRef) {
-                        otherEntity = (EntityRef) ((CollisionObject) initialPair.pProxy1.clientObject).getUserPointer();
-                    }
+                Object userPointer = ((CollisionObject) (initialPair.pProxy0.clientObject)).getUserPointer();
+                if (initialPair.pProxy0.clientObject == trigger || entity == userPointer) {
+                	Object userPointerOther = ((CollisionObject) initialPair.pProxy1.clientObject).getUserPointer();
+                	 if (userPointerOther instanceof EntityRef) {
+                        otherEntity = (EntityRef) userPointerOther;
+                     }else if(userPointerOther instanceof Vector3i){
+                     	otherEntity = blockEntityRegistry.getOrCreateEntityAt((Vector3i)userPointerOther);
+                     }
                 } else {
-                    if (((CollisionObject) initialPair.pProxy0.clientObject).getUserPointer() instanceof EntityRef) {
-                        otherEntity = (EntityRef) ((CollisionObject) initialPair.pProxy0.clientObject).getUserPointer();
-                    }
+                	  if (userPointer instanceof EntityRef) {
+                        otherEntity = (EntityRef) userPointer;
+                      }else if(userPointer instanceof Vector3i){
+                      	otherEntity = blockEntityRegistry.getOrCreateEntityAt((Vector3i)userPointer);
+                      }
                 }
                 if (otherEntity == null) {
                     continue;
@@ -283,7 +346,7 @@ public class PhysicsSystem implements EventHandlerSystem, UpdateSubscriberSystem
                     for (int point = 0; point < manifold.getNumContacts(); ++point) {
                         ManifoldPoint manifoldPoint = manifold.getContactPoint(point);
                         if (manifoldPoint.getDistance() < 0) {
-                            collisionPairs.add(new CollisionPair(entity, otherEntity));
+                            collisionPairs.add(new CollisionPair(entity, otherEntity, manifoldPoint));
                             break;
                         }
                     }
@@ -293,21 +356,23 @@ public class PhysicsSystem implements EventHandlerSystem, UpdateSubscriberSystem
 
         for (CollisionPair pair : collisionPairs) {
             if (pair.b.exists()) {
-                pair.a.send(new CollideEvent(pair.b));
+                pair.a.send(new CollideEvent(pair.b,pair.manifoldPoint.positionWorldOnB, pair.manifoldPoint.normalWorldOnB));
             }
             if (pair.a.exists()) {
-                pair.b.send(new CollideEvent(pair.a));
+                pair.b.send(new CollideEvent(pair.a,pair.manifoldPoint.positionWorldOnB, pair.manifoldPoint.normalWorldOnB));
             }
         }
     }
-
+    
     private static class CollisionPair {
         EntityRef a;
         EntityRef b;
-
-        public CollisionPair(EntityRef a, EntityRef b) {
+        ManifoldPoint manifoldPoint;
+        
+        public CollisionPair(EntityRef a, EntityRef b, ManifoldPoint manifold) {
             this.a = a;
             this.b = b;
+            this.manifoldPoint = manifold;
         }
     }
 

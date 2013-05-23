@@ -129,4 +129,34 @@ public class InventorySystem implements EventHandlerSystem {
             event.getItem().saveComponent(item);
         }
     }
+    
+    //recursive search for item in Inventory 
+    public boolean removeItemFromIventory(EntityRef entity,ItemComponent item, int amount){
+ 	   boolean result = false;
+ 	   InventoryComponent inventory = entity.getComponent(InventoryComponent.class);
+ 	   if(inventory != null){
+ 		   for(EntityRef curItem: inventory.itemSlots){
+ 			   if(curItem != null && curItem != EntityRef.NULL ){
+ 				   if(curItem.hasComponent(InventoryComponent.class)){
+ 					   if(removeItemFromIventory(curItem,item, amount)){
+ 						   result = true;
+ 						   break;
+ 					   }
+ 				   }
+ 				   ItemComponent curItemComonent = curItem.getComponent(ItemComponent.class);
+ 				   if(curItemComonent != null){
+ 				   	    if(curItemComonent.name.equals(item.name)){
+ 						   if(curItemComonent.stackCount >= amount ){
+ 							   curItemComonent.stackCount-=amount;
+ 							   curItem.saveComponent(curItemComonent);
+ 							   result = true;
+ 							   break;
+ 				   			}	   
+ 					    }
+ 				   }	
+ 			   }
+ 		   }
+ 	   }	   
+ 	   return result;
+    }
 }
